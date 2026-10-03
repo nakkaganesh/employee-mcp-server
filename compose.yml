@@ -1,0 +1,45 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: employee_mcp
+      MYSQL_USER: employee_app
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    stdin_open: true
+    tty: true
+
+    env_file:
+      - .env
+
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: employee_app
+      DB_NAME: employee_mcp
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
