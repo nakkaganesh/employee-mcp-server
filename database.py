@@ -41,6 +41,28 @@ def get_employee_leave_balance(employee_id: str):
         cursor.close()
         connection.close()
 
+def get_ticket_by_id(ticket_number: int):
+    """Get an IT ticket from MySQL by its database ID."""
+
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        cursor.execute(
+            """
+            SELECT id, employee_id, issue, status, created_at
+            FROM tickets
+            WHERE id = %s
+            """,
+            (ticket_number,),
+        )
+
+        return cursor.fetchone()
+
+    finally:
+        cursor.close()
+        connection.close()
+
 if __name__ == "__main__":
     connection = get_db_connection()
 

@@ -1,5 +1,5 @@
 from mcp.server.mcpserver import MCPServer
-from database import get_db_connection,get_employee_leave_balance
+from database import get_db_connection,get_employee_leave_balance,get_ticket_by_id
 
 import mysql.connector
 
@@ -108,38 +108,21 @@ def get_it_ticket(ticket_id: str) -> dict:
             "message": "Invalid ticket ID format.",
         }
 
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
+    ticket = get_ticket_by_id(ticket_number)
 
-    try:
-        cursor.execute(
-            """
-            SELECT id, employee_id, issue, status, created_at
-            FROM tickets
-            WHERE id = %s
-            """,
-            (ticket_number,),
-        )
-
-        ticket = cursor.fetchone()
-
-        if ticket is None:
-            return {
-                "status": "error",
-                "message": f"Ticket '{ticket_id}' was not found.",
-            }
-
+    if ticket is None:
         return {
-            "ticket_id": f"IT-{1000 + ticket['id']}",
-            "employee_id": ticket["employee_id"],
-            "issue": ticket["issue"],
-            "status": ticket["status"],
-            "created_at": str(ticket["created_at"]),
+            "status": "error",
+            "message": f"Ticket '{ticket_id}' was not found.",
         }
 
-    finally:
-        cursor.close()
-        connection.close()
+    return {
+        "ticket_id": f"IT-{1000 + ticket['id']}",
+        "employee_id": ticket["employee_id"],
+        "issue": ticket["issue"],
+        "status": ticket["status"],
+        "created_at": str(ticket["created_at"]),
+    }
 
 @mcp.tool()
 def update_ticket_status(
