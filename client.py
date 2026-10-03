@@ -17,6 +17,17 @@ server = StdioServerParameters(
     env=os.environ.copy(),
 )
 
+class ApprovalRequired(Exception):
+    """Raised when a write tool requires external approval."""
+
+    def __init__(self, tool_name, arguments):
+        self.tool_name = tool_name
+        self.arguments = arguments
+
+        super().__init__(
+            f"Approval required for tool: {tool_name}"
+        )
+
 
 def convert_mcp_tools(mcp_tools):
     """Convert MCP tool definitions into OpenAI function-tool definitions."""
@@ -80,13 +91,17 @@ async def run_agent(
 
             # Database-changing tools require explicit approval.
             if tool_name in {"create_it_ticket", "update_ticket_status"}:
-                approved = False
 
-                if approval_callback is not None:
-                    approved = await approval_callback(
+                if approval_callback is None:
+                    raise ApprovalRequired(
                         tool_name,
                         arguments,
                     )
+
+                approved = await approval_callback(
+                    tool_name,
+                    arguments,
+                )
 
                 if not approved:
                     messages.append(
