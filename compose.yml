@@ -25,6 +25,7 @@ services:
 
   app:
     build: .
+    command: ["uv", "run", "client.py"]
     stdin_open: true
     tty: true
 
