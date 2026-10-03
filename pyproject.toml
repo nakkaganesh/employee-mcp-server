@@ -1,12 +1,10 @@
 [project]
 name = "employee-mcp-server"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI-powered employee support agent using MCP, OpenAI, and MySQL"
 readme = "README.md"
-authors = [
-    { name = "g", email = "g" }
-]
 requires-python = ">=3.14"
+
 dependencies = [
     "mcp[cli]>=2.2.0",
     "mysql-connector-python>=26.7.0",
@@ -17,11 +15,11 @@ dependencies = [
 [project.scripts]
 employee-mcp-server = "employee_mcp_server:main"
 
-[build-system]
-requires = ["uv_build>=0.12.5,<0.13.0"]
-build-backend = "uv_build"
-
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
 ]
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
