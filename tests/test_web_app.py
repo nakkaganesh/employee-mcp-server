@@ -14,9 +14,8 @@ def test_root():
     response = client.get("/")
 
     assert response.status_code == 200
-    assert response.json()["message"] == "Employee MCP API is running"
-    assert response.json()["docs"] == "/docs"
-
+    assert "text/html" in response.headers["content-type"]
+    assert "Employee MCP Assistant" in response.text
 
 def test_health():
     response = client.get("/health")

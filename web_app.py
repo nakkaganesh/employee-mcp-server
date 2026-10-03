@@ -4,6 +4,8 @@ from fastapi import FastAPI, HTTPException
 from mcp import Client
 from pydantic import BaseModel
 
+from fastapi.responses import FileResponse
+
 from client import (
     ApprovalRequired,
     convert_mcp_tools,
@@ -42,11 +44,7 @@ class ApprovalResponse(BaseModel):
 
 @app.get("/")
 def root():
-    return {
-        "message": "Employee MCP API is running",
-        "docs": "/docs",
-    }
-
+    return FileResponse("static/index.html")
 
 @app.get("/health")
 def health():
@@ -72,40 +70,39 @@ async def chat(request: ChatRequest):
 
             messages = []
 
-            answer = await run_agent(
-                client,
-                openai_tools,
-                messages,
-                question,
-            )
+            try:
+                answer = await run_agent(
+                    client,
+                    openai_tools,
+                    messages,
+                    question,
+                )
 
-            return ChatResponse(
-                response=answer,
-            )
+                return ChatResponse(
+                    response=answer,
+                )
 
-    except ApprovalRequired as approval:
-        approval_id = str(uuid.uuid4())
+            except ApprovalRequired as approval:
+                approval_id = str(uuid.uuid4())
 
-        pending_approvals[approval_id] = {
-            "tool_name": approval.tool_name,
-            "arguments": approval.arguments,
-        }
+                pending_approvals[approval_id] = {
+                    "tool_name": approval.tool_name,
+                    "arguments": approval.arguments,
+                }
 
-        return ChatResponse(
-            response="This action requires your approval.",
-            approval_required=True,
-            approval_id=approval_id,
-            tool_name=approval.tool_name,
-            arguments=approval.arguments,
-        )
+                return ChatResponse(
+                    response="This action requires your approval.",
+                    approval_required=True,
+                    approval_id=approval_id,
+                    tool_name=approval.tool_name,
+                    arguments=approval.arguments,
+                )
 
     except Exception as error:
         raise HTTPException(
             status_code=500,
             detail=f"Agent request failed: {error}",
         ) from error
-
-
 @app.post(
     "/approve/{approval_id}",
     response_model=ApprovalResponse,

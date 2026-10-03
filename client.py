@@ -20,14 +20,14 @@ server = StdioServerParameters(
 class ApprovalRequired(Exception):
     """Raised when a write tool requires external approval."""
 
-    def __init__(self, tool_name, arguments):
+    def __init__(self, tool_name, arguments, tool_call_id=None):
         self.tool_name = tool_name
         self.arguments = arguments
+        self.tool_call_id = tool_call_id
 
         super().__init__(
             f"Approval required for tool: {tool_name}"
         )
-
 
 def convert_mcp_tools(mcp_tools):
     """Convert MCP tool definitions into OpenAI function-tool definitions."""
@@ -96,6 +96,7 @@ async def run_agent(
                     raise ApprovalRequired(
                         tool_name,
                         arguments,
+                        tool_call.id,
                     )
 
                 approved = await approval_callback(
