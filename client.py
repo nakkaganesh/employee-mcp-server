@@ -1,13 +1,9 @@
-import anyio
-
+import json
 import os
 
-import json
-
-from mcp import Client, StdioServerParameters
-
+import anyio
 from dotenv import load_dotenv
-
+from mcp import Client, StdioServerParameters
 from openai import OpenAI
 
 
@@ -20,6 +16,8 @@ server = StdioServerParameters(
     args=["run", "server.py"],
     env=os.environ.copy(),
 )
+
+
 def convert_mcp_tools(mcp_tools):
     """Convert MCP tool definitions into OpenAI function-tool definitions."""
 
@@ -39,13 +37,23 @@ def convert_mcp_tools(mcp_tools):
 
     return openai_tools
 
-async def run_agent(client, openai_tools, messages, question):
+
+async def run_agent(
+    client,
+    openai_tools,
+    messages,
+    question,
+    approval_callback=None,
+):
+    """Run one conversation turn and return the agent's final response."""
+
     messages.append(
         {
             "role": "user",
             "content": question,
         }
     )
+
     while True:
         response = llm.chat.completions.create(
             model="gpt-5.6",
@@ -57,16 +65,12 @@ async def run_agent(client, openai_tools, messages, question):
 
         message = response.choices[0].message
 
-        # Add the assistant message to conversation history
         messages.append(message)
 
-        # If there are no tool calls, we have the final answer
+        # No tool call means the model has produced its final answer.
         if not message.tool_calls:
-            print("\nAgent:")
-            print(message.content)
-            break
+            return message.content or ""
 
-        # Execute every tool requested by the model
         for tool_call in message.tool_calls:
             tool_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
@@ -74,14 +78,17 @@ async def run_agent(client, openai_tools, messages, question):
             print(f"\nTool: {tool_name}")
             print(f"Arguments: {arguments}")
 
-            if tool_name in {"create_it_ticket","update_ticket_status"}:
-                approval = input(
-                    "\nThis action will create an IT ticket. Approve? (yes/no): "
-                ).strip().lower()
+            # Database-changing tools require explicit approval.
+            if tool_name in {"create_it_ticket", "update_ticket_status"}:
+                approved = False
 
-                if approval not in {"yes", "y"}:
-                    print("Action cancelled.")
+                if approval_callback is not None:
+                    approved = await approval_callback(
+                        tool_name,
+                        arguments,
+                    )
 
+                if not approved:
                     messages.append(
                         {
                             "role": "tool",
@@ -89,7 +96,6 @@ async def run_agent(client, openai_tools, messages, question):
                             "content": "The user rejected this tool action.",
                         }
                     )
-
                     continue
 
             try:
@@ -98,25 +104,20 @@ async def run_agent(client, openai_tools, messages, question):
                     arguments,
                 )
 
-                if tool_result.is_error:
+                if tool_result.content:
                     tool_content = "\n".join(
                         item.text
                         for item in tool_result.content
                         if hasattr(item, "text")
                     )
+                else:
+                    tool_content = ""
 
+                if tool_result.is_error:
                     print("\nMCP tool returned an error:")
                     print(tool_content)
-
                 else:
-                    if tool_result.content:
-                        tool_content = "\n".join(
-                            item.text
-                            for item in tool_result.content
-                            if hasattr(item, "text")
-                        )
-                    else:
-                        tool_content = ""
+                    print(f"Result: {tool_content}")
 
             except Exception as error:
                 tool_content = f"Tool execution failed: {error}"
@@ -124,19 +125,6 @@ async def run_agent(client, openai_tools, messages, question):
                 print("\nTool error:")
                 print(error)
 
-            print(f"Result: {tool_result}")
-
-            # Extract cleaner text from MCP result
-            if tool_result.content:
-                tool_content = "\n".join(
-                    item.text
-                    for item in tool_result.content
-                    if hasattr(item, "text")
-                )
-            else:
-                tool_content = ""
-
-            # Return this specific result to the model
             messages.append(
                 {
                     "role": "tool",
@@ -144,6 +132,21 @@ async def run_agent(client, openai_tools, messages, question):
                     "content": tool_content,
                 }
             )
+
+
+async def cli_approval(tool_name, arguments):
+    """Request approval for database-changing tools in the terminal."""
+
+    print(f"\nRequested action: {tool_name}")
+    print(f"Arguments: {arguments}")
+
+    approval = input(
+        "This action will modify data. Approve? (yes/no): "
+    ).strip().lower()
+
+    return approval in {"yes", "y"}
+
+
 async def main() -> None:
     async with Client(server) as client:
         print("Connected to MCP server")
@@ -152,7 +155,7 @@ async def main() -> None:
 
         openai_tools = convert_mcp_tools(result.tools)
 
-        messages=[]
+        messages = []
 
         print("\nEmployee MCP Agent started.")
         print("Type 'exit' to stop.")
@@ -167,12 +170,17 @@ async def main() -> None:
             if not question:
                 continue
 
-            await run_agent(
+            answer = await run_agent(
                 client,
                 openai_tools,
                 messages,
                 question,
+                approval_callback=cli_approval,
             )
+
+            print("\nAgent:")
+            print(answer)
+
 
 if __name__ == "__main__":
     anyio.run(main)
