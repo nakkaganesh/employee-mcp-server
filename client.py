@@ -38,69 +38,66 @@ def convert_mcp_tools(mcp_tools):
 
     return openai_tools
 
-async def run_agent(client, openai_tools, question):
-    messages = [
+async def run_agent(client, openai_tools, messages, question):
+    messages.append(
         {
             "role": "user",
             "content": question,
         }
-    ]
-
-    response = llm.chat.completions.create(
-        model="gpt-5.6",
-        messages=messages,
-        tools=openai_tools,
-        tool_choice="auto",
-        reasoning_effort="none",
     )
+    while True:
+        response = llm.chat.completions.create(
+            model="gpt-5.6",
+            messages=messages,
+            tools=openai_tools,
+            tool_choice="auto",
+            reasoning_effort="none",
+        )
 
-    message = response.choices[0].message
+        message = response.choices[0].message
 
-    print("\nModel decision:")
-    print(message)
+        # Add the assistant message to conversation history
+        messages.append(message)
 
-    if message.tool_calls:
+        # If there are no tool calls, we have the final answer
+        if not message.tool_calls:
+            print("\nAgent:")
+            print(message.content)
+            break
+
+        # Execute every tool requested by the model
         for tool_call in message.tool_calls:
             tool_name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments)
 
-            print("\nSelected MCP tool:")
-            print(tool_name)
-
-            print("\nArguments:")
-            print(arguments)
+            print(f"\nTool: {tool_name}")
+            print(f"Arguments: {arguments}")
 
             tool_result = await client.call_tool(
                 tool_name,
                 arguments,
             )
 
-            print("\nMCP tool result:")
-            print(tool_result)
+            print(f"Result: {tool_result}")
 
-            messages.append(message)
+            # Extract cleaner text from MCP result
+            if tool_result.content:
+                tool_content = "\n".join(
+                    item.text
+                    for item in tool_result.content
+                    if hasattr(item, "text")
+                )
+            else:
+                tool_content = ""
 
+            # Return this specific result to the model
             messages.append(
                 {
                     "role": "tool",
                     "tool_call_id": tool_call.id,
-                    "content": str(tool_result.content),
+                    "content": tool_content,
                 }
             )
-
-            final_response = llm.chat.completions.create(
-                model="gpt-5.6",
-                messages=messages,
-                tools=openai_tools,
-                reasoning_effort="none",
-            )
-
-            final_message = final_response.choices[0].message
-
-            print("\nFinal answer:")
-            print(final_message.content)
-
-
 async def main() -> None:
     async with Client(server) as client:
         print("Connected to MCP server")
@@ -108,6 +105,8 @@ async def main() -> None:
         result = await client.list_tools()
 
         openai_tools = convert_mcp_tools(result.tools)
+
+        messages=[]
 
         print("\nEmployee MCP Agent started.")
         print("Type 'exit' to stop.")
@@ -125,6 +124,7 @@ async def main() -> None:
             await run_agent(
                 client,
                 openai_tools,
+                messages,
                 question,
             )
 
