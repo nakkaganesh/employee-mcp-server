@@ -73,6 +73,24 @@ async def run_agent(client, openai_tools, messages, question):
             print(f"\nTool: {tool_name}")
             print(f"Arguments: {arguments}")
 
+            if tool_name == "create_it_ticket":
+                approval = input(
+                    "\nThis action will create an IT ticket. Approve? (yes/no): "
+                ).strip().lower()
+
+                if approval not in {"yes", "y"}:
+                    print("Action cancelled.")
+
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": "The user rejected this tool action.",
+                        }
+                    )
+
+                    continue
+
             try:
                 tool_result = await client.call_tool(
                     tool_name,

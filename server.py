@@ -53,6 +53,16 @@ def create_it_ticket(
 ) -> dict:
     """Create an IT support ticket for an employee."""
 
+    valid_employees = {"EMP001", "EMP002", "EMP003"}
+
+    employee_id = employee_id.upper().strip()
+
+    if employee_id not in valid_employees:
+        return {
+            "status": "error",
+            "message": f"Employee '{employee_id}' was not found.",
+        }
+
     ticket_id = "IT-1001"
 
     return {
