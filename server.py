@@ -2,22 +2,35 @@ from mcp.server.mcpserver import MCPServer
 
 mcp=MCPServer("employee MCP server")
 
+
 @mcp.tool()
+def get_leave_balance(employee_id: str) -> str:
+    """Get the remaining leave balance of an employee."""
 
-def get_leave_balance(employee_id : str)-> str :
-    """ Get the remaining leave balance of an employee"""
+    employees = [
+        {"employee_id": "EMP001", "leave_balance": 12},
+        {"employee_id": "EMP002", "leave_balance": 6},
+        {"employee_id": "EMP003", "leave_balance": 8},
+    ]
 
-    leave_balance={
-        "EMP001": 12,
-        "EMP002": 6,
-        "EMP003": 23
-    }
-    days=leave_balance.get(employee_id.upper())
+    employee_id = employee_id.upper().strip()
 
-    if days is None:
-        return "employee not found"
+    employee = next(
+        (
+            emp
+            for emp in employees
+            if emp["employee_id"] == employee_id
+        ),
+        None,
+    )
 
-    return (f"Employee {employee_id.upper()} "f"has {days} annual leave days remaining.")
+    if employee is None:
+        return f"Employee '{employee_id}' was not found."
+
+    return (
+        f"Employee {employee_id} has "
+        f"{employee['leave_balance']} annual leave days remaining."
+    )
 
 @mcp.tool()
 def calculate_gst(amount:float,rate:float)->dict:

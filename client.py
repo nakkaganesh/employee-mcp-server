@@ -73,10 +73,37 @@ async def run_agent(client, openai_tools, messages, question):
             print(f"\nTool: {tool_name}")
             print(f"Arguments: {arguments}")
 
-            tool_result = await client.call_tool(
-                tool_name,
-                arguments,
-            )
+            try:
+                tool_result = await client.call_tool(
+                    tool_name,
+                    arguments,
+                )
+
+                if tool_result.is_error:
+                    tool_content = "\n".join(
+                        item.text
+                        for item in tool_result.content
+                        if hasattr(item, "text")
+                    )
+
+                    print("\nMCP tool returned an error:")
+                    print(tool_content)
+
+                else:
+                    if tool_result.content:
+                        tool_content = "\n".join(
+                            item.text
+                            for item in tool_result.content
+                            if hasattr(item, "text")
+                        )
+                    else:
+                        tool_content = ""
+
+            except Exception as error:
+                tool_content = f"Tool execution failed: {error}"
+
+                print("\nTool error:")
+                print(error)
 
             print(f"Result: {tool_result}")
 
