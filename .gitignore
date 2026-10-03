@@ -1,13 +1,30 @@
-# Python-generated files
+# Environment variables / secrets
+.env
+.env.*
+
+# Virtual environments
+.venv/
+venv/
+
+# Python cache
 __pycache__/
-*.py[oc]
+*.py[cod]
+*$py.class
+
+# Testing cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build / packaging
 build/
 dist/
 wheels/
-*.egg-info
+*.egg-info/
 
-# Virtual environments
-.venv
-.env
-.venv/
-__pycache__/
+# IDE / editor
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
