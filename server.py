@@ -236,5 +236,68 @@ def update_ticket_status(
         cursor.close()
         connection.close()
 
+@mcp.tool()
+def get_employee_tickets(employee_id: str) -> dict:
+    """Get all IT support tickets for an employee."""
+
+    employee_id = employee_id.upper().strip()
+
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        # First check whether the employee exists
+        cursor.execute(
+            """
+            SELECT employee_id
+            FROM employees
+            WHERE employee_id = %s
+            """,
+            (employee_id,),
+        )
+
+        employee = cursor.fetchone()
+
+        if employee is None:
+            return {
+                "status": "error",
+                "message": f"Employee '{employee_id}' was not found.",
+            }
+
+        # Get all tickets belonging to the employee
+        cursor.execute(
+            """
+            SELECT id, issue, status, created_at
+            FROM tickets
+            WHERE employee_id = %s
+            ORDER BY created_at DESC
+            """,
+            (employee_id,),
+        )
+
+        tickets = cursor.fetchall()
+
+        formatted_tickets = []
+
+        for ticket in tickets:
+            formatted_tickets.append(
+                {
+                    "ticket_id": f"IT-{1000 + ticket['id']}",
+                    "issue": ticket["issue"],
+                    "status": ticket["status"],
+                    "created_at": str(ticket["created_at"]),
+                }
+            )
+
+        return {
+            "employee_id": employee_id,
+            "ticket_count": len(formatted_tickets),
+            "tickets": formatted_tickets,
+        }
+
+    finally:
+        cursor.close()
+        connection.close()
+
 if __name__ == "__main__":
     mcp.run()
