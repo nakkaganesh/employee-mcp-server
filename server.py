@@ -1,5 +1,5 @@
 from mcp.server.mcpserver import MCPServer
-from database import get_db_connection,get_employee_leave_balance,get_ticket_by_id
+from database import get_db_connection,get_employee_leave_balance,get_ticket_by_id,get_tickets_by_employee
 
 import mysql.connector
 
@@ -208,62 +208,35 @@ def get_employee_tickets(employee_id: str) -> dict:
 
     employee_id = employee_id.upper().strip()
 
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
+    # Check whether employee exists
+    employee = get_employee_leave_balance(employee_id)
 
-    try:
-        # First check whether the employee exists
-        cursor.execute(
-            """
-            SELECT employee_id
-            FROM employees
-            WHERE employee_id = %s
-            """,
-            (employee_id,),
-        )
-
-        employee = cursor.fetchone()
-
-        if employee is None:
-            return {
-                "status": "error",
-                "message": f"Employee '{employee_id}' was not found.",
-            }
-
-        # Get all tickets belonging to the employee
-        cursor.execute(
-            """
-            SELECT id, issue, status, created_at
-            FROM tickets
-            WHERE employee_id = %s
-            ORDER BY created_at DESC
-            """,
-            (employee_id,),
-        )
-
-        tickets = cursor.fetchall()
-
-        formatted_tickets = []
-
-        for ticket in tickets:
-            formatted_tickets.append(
-                {
-                    "ticket_id": f"IT-{1000 + ticket['id']}",
-                    "issue": ticket["issue"],
-                    "status": ticket["status"],
-                    "created_at": str(ticket["created_at"]),
-                }
-            )
-
+    if employee is None:
         return {
-            "employee_id": employee_id,
-            "ticket_count": len(formatted_tickets),
-            "tickets": formatted_tickets,
+            "status": "error",
+            "message": f"Employee '{employee_id}' was not found.",
         }
 
-    finally:
-        cursor.close()
-        connection.close()
+    # Get tickets from database.py
+    tickets = get_tickets_by_employee(employee_id)
+
+    formatted_tickets = []
+
+    for ticket in tickets:
+        formatted_tickets.append(
+            {
+                "ticket_id": f"IT-{1000 + ticket['id']}",
+                "issue": ticket["issue"],
+                "status": ticket["status"],
+                "created_at": str(ticket["created_at"]),
+            }
+        )
+
+    return {
+        "employee_id": employee_id,
+        "ticket_count": len(formatted_tickets),
+        "tickets": formatted_tickets,
+    }
 
 if __name__ == "__main__":
     mcp.run()

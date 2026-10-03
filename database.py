@@ -63,6 +63,29 @@ def get_ticket_by_id(ticket_number: int):
         cursor.close()
         connection.close()
 
+def get_tickets_by_employee(employee_id: str):
+    """Get all IT tickets for an employee from MySQL."""
+
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        cursor.execute(
+            """
+            SELECT id, issue, status, created_at
+            FROM tickets
+            WHERE employee_id = %s
+            ORDER BY created_at DESC
+            """,
+            (employee_id,),
+        )
+
+        return cursor.fetchall()
+
+    finally:
+        cursor.close()
+        connection.close()
+
 if __name__ == "__main__":
     connection = get_db_connection()
 
