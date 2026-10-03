@@ -9,13 +9,25 @@ from openai import OpenAI
 
 load_dotenv()
 
-llm = OpenAI()
+llm = None
+
+
+def get_llm():
+    """Create the OpenAI client only when it is actually needed."""
+    global llm
+
+    if llm is None:
+        llm = OpenAI()
+
+    return llm
+
 
 server = StdioServerParameters(
     command="uv",
     args=["run", "server.py"],
     env=os.environ.copy(),
 )
+
 
 class ApprovalRequired(Exception):
     """Raised when a write tool requires external approval."""
@@ -28,6 +40,7 @@ class ApprovalRequired(Exception):
         super().__init__(
             f"Approval required for tool: {tool_name}"
         )
+
 
 def convert_mcp_tools(mcp_tools):
     """Convert MCP tool definitions into OpenAI function-tool definitions."""
@@ -66,7 +79,7 @@ async def run_agent(
     )
 
     while True:
-        response = llm.chat.completions.create(
+        response = get_llm().chat.completions.create(
             model="gpt-5.6",
             messages=messages,
             tools=openai_tools,
@@ -78,20 +91,24 @@ async def run_agent(
 
         messages.append(message)
 
-        # No tool call means the model has produced its final answer.
+        # No tool call means the model produced its final answer.
         if not message.tool_calls:
             return message.content or ""
 
         for tool_call in message.tool_calls:
             tool_name = tool_call.function.name
-            arguments = json.loads(tool_call.function.arguments)
+            arguments = json.loads(
+                tool_call.function.arguments
+            )
 
             print(f"\nTool: {tool_name}")
             print(f"Arguments: {arguments}")
 
             # Database-changing tools require explicit approval.
-            if tool_name in {"create_it_ticket", "update_ticket_status"}:
-
+            if tool_name in {
+                "create_it_ticket",
+                "update_ticket_status",
+            }:
                 if approval_callback is None:
                     raise ApprovalRequired(
                         tool_name,
@@ -109,9 +126,12 @@ async def run_agent(
                         {
                             "role": "tool",
                             "tool_call_id": tool_call.id,
-                            "content": "The user rejected this tool action.",
+                            "content": (
+                                "The user rejected this tool action."
+                            ),
                         }
                     )
+
                     continue
 
             try:
@@ -136,7 +156,9 @@ async def run_agent(
                     print(f"Result: {tool_content}")
 
             except Exception as error:
-                tool_content = f"Tool execution failed: {error}"
+                tool_content = (
+                    f"Tool execution failed: {error}"
+                )
 
                 print("\nTool error:")
                 print(error)
@@ -169,7 +191,9 @@ async def main() -> None:
 
         result = await client.list_tools()
 
-        openai_tools = convert_mcp_tools(result.tools)
+        openai_tools = convert_mcp_tools(
+            result.tools
+        )
 
         messages = []
 
@@ -177,9 +201,14 @@ async def main() -> None:
         print("Type 'exit' to stop.")
 
         while True:
-            question = input("\nYou: ").strip()
+            question = input(
+                "\nYou: "
+            ).strip()
 
-            if question.lower() in {"exit", "quit"}:
+            if question.lower() in {
+                "exit",
+                "quit",
+            }:
                 print("\nGoodbye!")
                 break
 
