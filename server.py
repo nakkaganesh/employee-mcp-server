@@ -1,6 +1,7 @@
 from mcp.server.mcpserver import MCPServer
 from database import get_db_connection
 
+import mysql.connector
 
 mcp=MCPServer("employee MCP server")
 
@@ -69,25 +70,9 @@ def create_it_ticket(employee_id: str,issue: str) -> dict:
     cursor = connection.cursor(dictionary=True)
 
     try:
-        # Check whether the employee exists
-        cursor.execute(
-            """
-            SELECT employee_id
-            FROM employees
-            WHERE employee_id = %s
-            """,
-            (employee_id,),
-        )
+    # existing SELECT employee validation
 
-        employee = cursor.fetchone()
-
-        if employee is None:
-            return {
-                "status": "error",
-                "message": f"Employee '{employee_id}' was not found.",
-            }
-
-        # Create the ticket
+    # existing INSERT
         cursor.execute(
             """
             INSERT INTO tickets (employee_id, issue, status)
@@ -106,6 +91,14 @@ def create_it_ticket(employee_id: str,issue: str) -> dict:
             "employee_id": employee_id,
             "issue": issue,
             "status": "created",
+        }
+
+    except mysql.connector.Error as error:
+        connection.rollback()
+
+        return {
+            "status": "error",
+            "message": f"Database error: {error}",
         }
 
     finally:
@@ -232,10 +225,17 @@ def update_ticket_status(
             "message": "Ticket status updated successfully.",
         }
 
+    except mysql.connector.Error as error:
+        connection.rollback()
+
+        return {
+            "status": "error",
+            "message": f"Database error: {error}",
+        }
+
     finally:
         cursor.close()
         connection.close()
-
 @mcp.tool()
 def get_employee_tickets(employee_id: str) -> dict:
     """Get all IT support tickets for an employee."""
