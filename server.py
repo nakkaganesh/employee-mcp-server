@@ -165,5 +165,76 @@ def get_it_ticket(ticket_id: str) -> dict:
         cursor.close()
         connection.close()
 
+@mcp.tool()
+def update_ticket_status(
+    ticket_id: str,
+    status: str,
+) -> dict:
+    """Update the status of an IT support ticket."""
+
+    ticket_id = ticket_id.upper().strip()
+    status = status.lower().strip()
+
+    valid_statuses = {
+        "created",
+        "in_progress",
+        "resolved",
+        "closed",
+    }
+
+    if status not in valid_statuses:
+        return {
+            "status": "error",
+            "message": (
+                "Invalid status. Valid statuses are: "
+                "created, in_progress, resolved, closed."
+            ),
+        }
+
+    if not ticket_id.startswith("IT-"):
+        return {
+            "status": "error",
+            "message": "Invalid ticket ID format.",
+        }
+
+    try:
+        ticket_number = int(ticket_id.removeprefix("IT-")) - 1000
+    except ValueError:
+        return {
+            "status": "error",
+            "message": "Invalid ticket ID format.",
+        }
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute(
+            """
+            UPDATE tickets
+            SET status = %s
+            WHERE id = %s
+            """,
+            (status, ticket_number),
+        )
+
+        if cursor.rowcount == 0:
+            return {
+                "status": "error",
+                "message": f"Ticket '{ticket_id}' was not found.",
+            }
+
+        connection.commit()
+
+        return {
+            "ticket_id": ticket_id,
+            "status": status,
+            "message": "Ticket status updated successfully.",
+        }
+
+    finally:
+        cursor.close()
+        connection.close()
+
 if __name__ == "__main__":
     mcp.run()

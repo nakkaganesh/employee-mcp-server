@@ -73,7 +73,7 @@ async def run_agent(client, openai_tools, messages, question):
             print(f"\nTool: {tool_name}")
             print(f"Arguments: {arguments}")
 
-            if tool_name == "create_it_ticket":
+            if tool_name in {"create_it_ticket","update_ticket_status"}:
                 approval = input(
                     "\nThis action will create an IT ticket. Approve? (yes/no): "
                 ).strip().lower()
