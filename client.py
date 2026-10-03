@@ -1,7 +1,8 @@
 import anyio
 
-import json
+import os
 
+import json
 
 from mcp import Client, StdioServerParameters
 
@@ -14,10 +15,10 @@ load_dotenv()
 
 llm = OpenAI()
 
-server=StdioServerParameters(
+server = StdioServerParameters(
     command="uv",
-    args=["run","server.py"]
-
+    args=["run", "server.py"],
+    env=os.environ.copy(),
 )
 def convert_mcp_tools(mcp_tools):
     """Convert MCP tool definitions into OpenAI function-tool definitions."""
