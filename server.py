@@ -1,5 +1,5 @@
 from mcp.server.mcpserver import MCPServer
-from database import get_db_connection
+from database import get_db_connection,get_employee_leave_balance
 
 import mysql.connector
 
@@ -12,32 +12,15 @@ def get_leave_balance(employee_id: str) -> str:
 
     employee_id = employee_id.upper().strip()
 
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
+    employee = get_employee_leave_balance(employee_id)
 
-    try:
-        cursor.execute(
-            """
-            SELECT employee_id, leave_balance
-            FROM employees
-            WHERE employee_id = %s
-            """,
-            (employee_id,),
-        )
+    if employee is None:
+        return f"Employee '{employee_id}' was not found."
 
-        employee = cursor.fetchone()
-
-        if employee is None:
-            return f"Employee '{employee_id}' was not found."
-
-        return (
-            f"Employee {employee['employee_id']} has "
-            f"{employee['leave_balance']} annual leave days remaining."
-        )
-
-    finally:
-        cursor.close()
-        connection.close()
+    return (
+        f"Employee {employee['employee_id']} has "
+        f"{employee['leave_balance']} annual leave days remaining."
+    )
 
 @mcp.tool()
 def calculate_gst(amount:float,rate:float)->dict:

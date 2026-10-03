@@ -19,6 +19,27 @@ def get_db_connection():
     )
 
     return connection
+def get_employee_leave_balance(employee_id: str):
+    """Get an employee's leave information from MySQL."""
+
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        cursor.execute(
+            """
+            SELECT employee_id, leave_balance
+            FROM employees
+            WHERE employee_id = %s
+            """,
+            (employee_id,),
+        )
+
+        return cursor.fetchone()
+
+    finally:
+        cursor.close()
+        connection.close()
 
 if __name__ == "__main__":
     connection = get_db_connection()
