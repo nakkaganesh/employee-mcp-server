@@ -1,5 +1,5 @@
 from mcp.server.mcpserver import MCPServer
-from database import get_db_connection,get_employee_leave_balance,get_ticket_by_id,get_tickets_by_employee,insert_ticket
+from database import get_db_connection,get_employee_leave_balance,get_ticket_by_id,get_tickets_by_employee,insert_ticket,update_ticket_status_db
 
 import mysql.connector
 
@@ -121,7 +121,7 @@ def update_ticket_status(
     """Update the status of an IT support ticket."""
 
     ticket_id = ticket_id.upper().strip()
-    status = status.lower().strip()
+    status = status.lower().strip().replace(" ", "_")
 
     valid_statuses = {
         "created",
@@ -153,26 +153,17 @@ def update_ticket_status(
             "message": "Invalid ticket ID format.",
         }
 
-    connection = get_db_connection()
-    cursor = connection.cursor()
-
     try:
-        cursor.execute(
-            """
-            UPDATE tickets
-            SET status = %s
-            WHERE id = %s
-            """,
-            (status, ticket_number),
+        updated = update_ticket_status_db(
+            ticket_number,
+            status,
         )
 
-        if cursor.rowcount == 0:
+        if not updated:
             return {
                 "status": "error",
                 "message": f"Ticket '{ticket_id}' was not found.",
             }
-
-        connection.commit()
 
         return {
             "ticket_id": ticket_id,
@@ -181,16 +172,10 @@ def update_ticket_status(
         }
 
     except mysql.connector.Error as error:
-        connection.rollback()
-
         return {
             "status": "error",
             "message": f"Database error: {error}",
         }
-
-    finally:
-        cursor.close()
-        connection.close()
 @mcp.tool()
 def get_employee_tickets(employee_id: str) -> dict:
     """Get all IT support tickets for an employee."""

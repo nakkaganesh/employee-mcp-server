@@ -114,6 +114,37 @@ def insert_ticket(employee_id: str, issue: str):
         cursor.close()
         connection.close()
 
+
+def update_ticket_status_db(ticket_number: int, status: str) -> bool:
+    """Update an IT ticket status in MySQL."""
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute(
+            """
+            UPDATE tickets
+            SET status = %s
+            WHERE id = %s
+            """,
+            (status, ticket_number),
+        )
+
+        updated = cursor.rowcount > 0
+
+        connection.commit()
+
+        return updated
+
+    except mysql.connector.Error:
+        connection.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        connection.close()
+
 if __name__ == "__main__":
     connection = get_db_connection()
 
