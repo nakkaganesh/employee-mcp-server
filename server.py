@@ -1,5 +1,5 @@
 from mcp.server.mcpserver import MCPServer
-from database import get_db_connection,get_employee_leave_balance,get_ticket_by_id,get_tickets_by_employee
+from database import get_db_connection,get_employee_leave_balance,get_ticket_by_id,get_tickets_by_employee,insert_ticket
 
 import mysql.connector
 
@@ -37,7 +37,11 @@ def calculate_gst(amount:float,rate:float)->dict:
         "total_amount": total_amount,
     }
 @mcp.tool()
-def create_it_ticket(employee_id: str,issue: str) -> dict:
+@mcp.tool()
+def create_it_ticket(
+    employee_id: str,
+    issue: str,
+) -> dict:
     """Create an IT support ticket for an employee."""
 
     employee_id = employee_id.upper().strip()
@@ -46,47 +50,32 @@ def create_it_ticket(employee_id: str,issue: str) -> dict:
     if not issue:
         return {
             "status": "error",
-            "message": "Issue description cannot be empty.",
+            "message": "Issue cannot be empty.",
         }
 
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
+    employee = get_employee_leave_balance(employee_id)
+
+    if employee is None:
+        return {
+            "status": "error",
+            "message": f"Employee '{employee_id}' was not found.",
+        }
 
     try:
-    # existing SELECT employee validation
-
-    # existing INSERT
-        cursor.execute(
-            """
-            INSERT INTO tickets (employee_id, issue, status)
-            VALUES (%s, %s, %s)
-            """,
-            (employee_id, issue, "created"),
-        )
-
-        connection.commit()
-
-        ticket_number = cursor.lastrowid
-        ticket_id = f"IT-{1000 + ticket_number}"
+        ticket_number = insert_ticket(employee_id, issue)
 
         return {
-            "ticket_id": ticket_id,
+            "ticket_id": f"IT-{1000 + ticket_number}",
             "employee_id": employee_id,
             "issue": issue,
             "status": "created",
         }
 
     except mysql.connector.Error as error:
-        connection.rollback()
-
         return {
             "status": "error",
             "message": f"Database error: {error}",
         }
-
-    finally:
-        cursor.close()
-        connection.close()
 
 @mcp.tool()
 def get_it_ticket(ticket_id: str) -> dict:

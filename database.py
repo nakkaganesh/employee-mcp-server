@@ -86,6 +86,34 @@ def get_tickets_by_employee(employee_id: str):
         cursor.close()
         connection.close()
 
+
+def insert_ticket(employee_id: str, issue: str):
+    """Create an IT support ticket in MySQL."""
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute(
+            """
+            INSERT INTO tickets (employee_id, issue, status)
+            VALUES (%s, %s, %s)
+            """,
+            (employee_id, issue, "created"),
+        )
+
+        connection.commit()
+
+        return cursor.lastrowid
+
+    except mysql.connector.Error:
+        connection.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        connection.close()
+
 if __name__ == "__main__":
     connection = get_db_connection()
 
