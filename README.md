@@ -1,5 +1,7 @@
 # Employee MCP Server
 
+[![Tests](https://github.com/nakkaganesh/employee-mcp-server/actions/workflows/tests.yml/badge.svg)](https://github.com/nakkaganesh/employee-mcp-server/actions/workflows/tests.yml)
+
 An AI-powered employee support agent built using the Model Context Protocol (MCP), OpenAI, Python, and MySQL.
 
 The agent dynamically selects MCP tools based on natural-language requests and can retrieve employee information, calculate GST, create and manage IT support tickets, and maintain conversational context.
