@@ -1,5 +1,5 @@
 from mcp.server.mcpserver import MCPServer
-from database import get_db_connection,get_employee_leave_balance,get_ticket_by_id,get_tickets_by_employee,insert_ticket,update_ticket_status_db
+from database import get_employee_leave_balance,get_ticket_by_id,get_tickets_by_employee,insert_ticket,update_ticket_status_db
 
 import mysql.connector
 
