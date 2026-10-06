@@ -23,21 +23,6 @@ def get_leave_balance(employee_id: str) -> str:
     )
 
 @mcp.tool()
-def calculate_gst(amount:float,rate:float)->dict:
-    """ calculate gst for given amount and tax rate"""
-    gst_amount=amount*rate/100
-
-    total_amount=amount+gst_amount
-
-
-    return {
-        "amount": amount,
-        "rate": rate,
-        "gst_amount": gst_amount,
-        "total_amount": total_amount,
-    }
-@mcp.tool()
-@mcp.tool()
 def create_it_ticket(
     employee_id: str,
     issue: str,

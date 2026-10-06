@@ -14,8 +14,7 @@ dependencies = [
     "uvicorn[standard]>=0.54.0",
 ]
 
-[project.scripts]
-employee-mcp-server = "employee_mcp_server:main"
+
 
 [dependency-groups]
 dev = [

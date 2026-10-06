@@ -1,6 +1,5 @@
-from server import calculate_gst
+
 from server import (
-    calculate_gst,
     get_leave_balance,
     create_it_ticket,
     update_ticket_status,
@@ -8,26 +7,10 @@ from server import (
     get_employee_tickets
 )
 
-def test_calculate_gst():
-    result = calculate_gst(50000, 18)
-
-    assert result["amount"] == 50000
-    assert result["rate"] == 18
-    assert result["gst_amount"] == 9000
-    assert result["total_amount"] == 59000
 
 from unittest.mock import patch
 
-from server import calculate_gst, get_leave_balance
-
-
-def test_calculate_gst():
-    result = calculate_gst(50000, 18)
-
-    assert result["amount"] == 50000
-    assert result["rate"] == 18
-    assert result["gst_amount"] == 9000
-    assert result["total_amount"] == 59000
+from server import get_leave_balance
 
 
 @patch("server.get_employee_leave_balance")

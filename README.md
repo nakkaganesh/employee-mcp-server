@@ -2,9 +2,9 @@
 
 [![Tests](https://github.com/nakkaganesh/employee-mcp-server/actions/workflows/tests.yml/badge.svg)](https://github.com/nakkaganesh/employee-mcp-server/actions/workflows/tests.yml)
 
-An AI-powered employee support agent built using the **Model Context Protocol (MCP), OpenAI, Python, MySQL, Docker, and Docker Compose**.
+An AI-powered employee support assistant built using **Model Context Protocol (MCP), OpenAI, Python, FastAPI, MySQL, Docker, and Docker Compose**.
 
-The agent understands natural-language employee requests, dynamically selects MCP tools, retrieves employee information, calculates GST, creates and manages IT support tickets, maintains conversation context, and requires human approval before performing database-changing operations.
+The assistant understands natural-language employee requests, dynamically selects MCP tools, retrieves employee information, manages IT support tickets, and requires human approval before performing database-changing operations.
 
 ---
 
@@ -13,20 +13,19 @@ The agent understands natural-language employee requests, dynamically selects MC
 - Model Context Protocol (MCP) server
 - OpenAI-powered agent
 - Dynamic MCP tool discovery and selection
-- Multi-turn conversation memory
 - Employee leave balance lookup
-- GST calculation
 - IT support ticket creation
-- IT ticket status lookup
+- IT ticket lookup
 - Employee ticket history
 - Ticket status updates
 - Human-in-the-loop approval for write operations
+- FastAPI REST API
+- Browser-based chat interface
 - MySQL persistence
-- Dedicated database access layer
 - Database transactions with commit and rollback
 - Input validation and error handling
-- Automated unit testing with pytest
-- Mocked database dependencies for safe unit testing
+- Automated testing with pytest
+- Mocked dependencies for unit/API testing
 - GitHub Actions continuous integration
 - Dockerized Python application
 - Dockerized MySQL database
@@ -40,57 +39,87 @@ The agent understands natural-language employee requests, dynamically selects MC
 
 ```text
                     User
-                      |
-                      v
+                     |
+                     v
+              Browser / CLI
+                     |
+                     v
                 OpenAI Agent
-                      |
-                      v
+                     |
+                     v
                  MCP Client
-                      |
-          +-----------+-----------+
-          |           |           |
-          v           v           v
-    Conversation   Dynamic      Human
-      Memory        Tool       Approval
-                   Selection
-                      |
-                      v
-                  MCP Server
-                      |
-        +-------------+-------------+
-        |             |             |
-        v             v             v
- Leave Balance    IT Tickets       GST
-        |             |
-        +------+------+
-               |
-               v
-         Database Layer
-          database.py
-               |
-               v
-             MySQL
+                     |
+          +----------+----------+
+          |                     |
+          v                     v
+     Tool Selection       Human Approval
+                                |
+                                v
+                           Write Actions
+          |                     |
+          +----------+----------+
+                     |
+                     v
+                 MCP Server
+                     |
+          +----------+----------+
+          |                     |
+          v                     v
+    Leave Balance          IT Tickets
+          |                     |
+          +----------+----------+
+                     |
+                     v
+                database.py
+                     |
+                     v
+                   MySQL
 ```
 
-When running with Docker Compose:
+### Web Application Flow
 
 ```text
-Host Machine
+Browser
+   |
+   v
+static/index.html
+   |
+   v
+FastAPI
+web_app.py
+   |
+   v
+client.py
+   |
+   v
+MCP Server
+server.py
+   |
+   v
+database.py
+   |
+   v
+MySQL
+```
+
+For write operations:
+
+```text
+User Request
      |
      v
-Docker Compose
+OpenAI selects write tool
      |
-     +-------------------------------+
-     |                               |
-     v                               v
-App Container                  MySQL Container
-     |                               |
-     |-- OpenAI Agent                |-- employees
-     |-- MCP Client                  |
-     |-- MCP Server                  |-- tickets
-     |-- database.py                 |
-     |                               |
-     +------------- mysql -----------+
+     v
+Approval Required
+     |
+ +---+---+
+ |       |
+ v       v
+Approve Reject
+ |       |
+ v       v
+Execute Cancel
 ```
 
 ---
@@ -107,8 +136,11 @@ employee-mcp-server/
 ├── src/
 │   └── employee_mcp_server/
 │       └── __init__.py
+├── static/
+│   └── index.html
 ├── tests/
-│   └── test_server.py
+│   ├── test_server.py
+│   └── test_web_app.py
 ├── .dockerignore
 ├── .gitignore
 ├── .python-version
@@ -118,16 +150,16 @@ employee-mcp-server/
 ├── Dockerfile
 ├── pyproject.toml
 ├── README.md
-├── requirements.txt
 ├── server.py
-└── uv.lock
+├── uv.lock
+└── web_app.py
 ```
 
 ---
 
 ## MCP Tools
 
-The MCP server exposes tools that the AI agent can select dynamically based on the user's request.
+The MCP server exposes employee-support tools that the AI agent can select dynamically based on the user's request.
 
 ### `get_leave_balance`
 
@@ -142,19 +174,7 @@ How much leave does EMP002 have?
 Example response:
 
 ```text
-EMP002 has 6 annual leave days remaining.
-```
-
----
-
-### `calculate_gst`
-
-Calculates GST and the total amount including GST.
-
-Example:
-
-```text
-Calculate 18% GST on 50000
+Employee EMP002 has 6 annual leave days remaining.
 ```
 
 ---
@@ -175,7 +195,7 @@ Create an IT ticket for EMP001 because my laptop keyboard is not working
 
 ### `get_it_ticket`
 
-Retrieves an IT support ticket by ticket ID.
+Retrieves an IT support ticket using its ticket ID.
 
 Example:
 
@@ -187,7 +207,7 @@ What is the status of IT-1001?
 
 ### `get_employee_tickets`
 
-Returns IT support tickets belonging to an employee.
+Returns the IT support tickets belonging to an employee.
 
 Example:
 
@@ -220,6 +240,13 @@ Ticket status changes require human approval before execution.
 
 Actions that modify persistent data require explicit user approval.
 
+Human approval currently applies to:
+
+- Creating IT tickets
+- Updating ticket statuses
+
+Read-only operations can execute directly.
+
 ```text
 User Request
      |
@@ -230,64 +257,72 @@ OpenAI Agent
 Select MCP Tool
      |
      v
-Is this a write operation?
-     |
-     +------ No ------> Execute Tool
-     |
-    Yes
-     |
-     v
-Request Human Approval
+Write operation?
      |
  +---+---+
  |       |
- v       v
-Approve Reject
+No      Yes
  |       |
  v       v
-Execute Cancel
+Execute Approval Required
+         |
+      +--+--+
+      |     |
+      v     v
+   Approve Reject
+      |     |
+      v     v
+   Execute Cancel
 ```
 
-Human approval applies to operations such as:
-
-- Creating IT tickets
-- Updating ticket statuses
-
-This prevents the AI agent from modifying persistent data without user confirmation.
+This prevents the AI assistant from modifying persistent data without user confirmation.
 
 ---
 
 ## Database
 
-The application uses MySQL for persistent employee and IT ticket data.
+The application uses **MySQL** for employee and IT ticket data.
 
 The database access logic is separated from the MCP tool layer:
 
 ```text
-MCP Server
-    |
-    v
+MCP Tool
+   |
+   v
 server.py
-    |
-    v
+   |
+   v
 database.py
-    |
-    v
+   |
+   v
 MySQL
 ```
 
 ### Tables
 
-The application uses two primary tables:
+The application uses two main tables:
 
 ```text
 employees
 tickets
 ```
 
-The `employees` table contains employee information and leave balances.
+The `employees` table contains:
 
-The `tickets` table stores IT support requests and references employees through a foreign key.
+- Employee ID
+- Name
+- Department
+- Leave balance
+
+The `tickets` table contains:
+
+- Ticket ID
+- Employee ID
+- Issue
+- Status
+- Created timestamp
+
+The `tickets.employee_id` column references the employee through a foreign key.
 
 ### Transactions
 
@@ -304,8 +339,6 @@ Database errors trigger:
 ```python
 connection.rollback()
 ```
-
-This helps protect database consistency when write operations fail.
 
 ---
 
@@ -325,14 +358,14 @@ These records are intended for development and demonstration.
 
 ## Requirements
 
-For local development:
+### Local Development
 
 - Python 3.14+
 - uv
 - MySQL
 - OpenAI API key
 
-For the containerized setup:
+### Containerized Setup
 
 - Docker
 - Docker Compose
@@ -349,7 +382,7 @@ git clone https://github.com/nakkaganesh/employee-mcp-server.git
 cd employee-mcp-server
 ```
 
-Install dependencies using `uv`:
+Install dependencies:
 
 ```bash
 uv sync
@@ -377,17 +410,17 @@ MYSQL_ROOT_PASSWORD=your_mysql_root_password
 
 Never commit your real `.env` file.
 
-The project `.gitignore` excludes `.env` from Git.
+The project `.gitignore` and `.dockerignore` exclude `.env`.
 
-When the application runs through Docker Compose, `DB_HOST` is overridden so that the application connects to the `mysql` Compose service rather than `localhost`.
+When using Docker Compose, `DB_HOST` is overridden so that the application connects to the `mysql` service.
 
 ---
 
-## Run Locally
+## Run the CLI Agent
 
-Make sure your local MySQL database is running and the environment variables point to it.
+Make sure MySQL is running and your environment variables are configured.
 
-Start the agent:
+Run:
 
 ```bash
 uv run client.py
@@ -400,8 +433,6 @@ Connected to MCP server
 
 Employee MCP Agent started.
 Type 'exit' to stop.
-
-You:
 ```
 
 Example:
@@ -413,10 +444,10 @@ Tool: get_leave_balance
 Arguments: {'employee_id': 'EMP002'}
 
 Agent:
-EMP002 has 6 annual leave days remaining.
+Employee EMP002 has 6 annual leave days remaining.
 ```
 
-Exit with:
+Exit using:
 
 ```text
 exit
@@ -424,76 +455,108 @@ exit
 
 ---
 
-# Docker
+## Run the Web Application
 
-The Python application can also run inside Docker.
+Start the FastAPI application:
 
-## Build the Image
+```bash
+uv run uvicorn web_app:app --reload
+```
 
-Start Docker Desktop and run:
+Then open the local application in your browser.
+
+The browser interface supports:
+
+- Natural-language employee requests
+- Leave balance lookup
+- IT ticket lookup
+- IT ticket creation
+- Ticket status updates
+- Human approval and rejection
+
+The web interface communicates with the FastAPI backend using HTTP requests.
+
+---
+
+## API Endpoints
+
+### Health Check
+
+```text
+GET /health
+```
+
+Returns:
+
+```json
+{
+  "status": "healthy"
+}
+```
+
+### Chat
+
+```text
+POST /chat
+```
+
+Example request:
+
+```json
+{
+  "message": "How much leave does EMP002 have?"
+}
+```
+
+### Approve Action
+
+```text
+POST /approve/{approval_id}
+```
+
+Executes a pending database-changing action after user approval.
+
+### Reject Action
+
+```text
+DELETE /approve/{approval_id}
+```
+
+Rejects the pending action without executing it.
+
+---
+
+## Docker
+
+Build the application image:
 
 ```bash
 docker build -t employee-mcp-server .
 ```
 
-Verify the image:
-
-```bash
-docker images employee-mcp-server
-```
+The Dockerfile runs the FastAPI web application by default.
 
 ---
 
-## Run Against MySQL on the Host
+## Docker Compose
 
-On Docker Desktop for macOS, a container can access MySQL running on the host through:
+Docker Compose provides the application and MySQL environment.
 
-```text
-host.docker.internal
-```
+The MySQL service includes:
 
-Run:
+- MySQL 8.4
+- Persistent storage
+- Health check
+- Automatic schema initialization
+- Sample employee records
 
-```bash
-docker run --rm -it \
-  --env-file .env \
-  -e DB_HOST=host.docker.internal \
-  employee-mcp-server
-```
-
-This architecture looks like:
-
-```text
-Docker App Container
-        |
-        v
-host.docker.internal
-        |
-        v
-MySQL on macOS
-```
-
-For a fully containerized environment, use Docker Compose instead.
-
----
-
-# Docker Compose
-
-Docker Compose runs both the application and MySQL in containers.
-
-This is the recommended way to run the complete development environment.
-
-## Start MySQL
-
-Start Docker Desktop.
-
-Then run:
+Start MySQL:
 
 ```bash
 docker compose up -d mysql
 ```
 
-Check the service:
+Check its status:
 
 ```bash
 docker compose ps
@@ -505,86 +568,11 @@ Wait until MySQL reports:
 healthy
 ```
 
-The initialization script:
-
-```text
-docker/init.sql
-```
-
-automatically creates the required tables and sample employee records when the MySQL volume is initialized for the first time.
-
----
-
-## Run the Agent
-
-Run:
+Run the CLI application through Compose:
 
 ```bash
 docker compose run --rm app
 ```
-
-You should see:
-
-```text
-Connected to MCP server
-
-Employee MCP Agent started.
-Type 'exit' to stop.
-
-You:
-```
-
-Example:
-
-```text
-You: How much leave does EMP002 have?
-
-Agent:
-EMP002 has 6 annual leave days remaining.
-```
-
----
-
-## Test a Write Operation
-
-For example:
-
-```text
-Create an IT ticket for EMP001 because the laptop keyboard is not working
-```
-
-The agent should request human approval before creating the ticket.
-
-After approval, verify it with:
-
-```text
-Show all tickets for EMP001
-```
-
-This tests the complete flow:
-
-```text
-User
-  |
-  v
-OpenAI
-  |
-  v
-MCP Client
-  |
-  v
-MCP Server
-  |
-  v
-database.py
-  |
-  v
-MySQL Container
-```
-
----
-
-## Stop Docker Compose
 
 When finished:
 
@@ -592,29 +580,24 @@ When finished:
 docker compose down
 ```
 
-This stops the Compose environment while preserving the MySQL data stored in the Docker volume.
+This preserves the MySQL volume.
 
-You can then quit Docker Desktop if it is no longer needed.
+To remove the containers and database volume:
 
----
-
-## Delete the Docker Database
-
-To remove containers **and the persistent MySQL volume**:
+````markdown
+Start the complete application:
 
 ```bash
 docker compose down -v
 ```
 
-Use this command carefully.
-
-Deleting the volume removes the containerized database data.
+Use the `-v` command carefully because it deletes the containerized database data.
 
 ---
 
 ## Testing
 
-The project includes automated unit tests using `pytest`.
+The project uses **pytest** for automated testing.
 
 Run:
 
@@ -622,20 +605,28 @@ Run:
 uv run python -m pytest -v
 ```
 
-The test suite covers areas including:
+The current test suite contains **22 passing tests**.
 
-- GST calculation
+Tests cover areas including:
+
 - Employee leave balance lookup
 - Missing employee handling
 - IT ticket creation
-- Invalid ticket creation
+- Empty ticket issue validation
 - Ticket lookup
 - Missing ticket handling
 - Employee ticket history
 - Ticket status updates
 - Invalid ticket statuses
+- FastAPI health endpoint
+- Empty chat validation
+- Agent responses
+- Approval requests
+- Approval execution
+- Approval rejection
+- Single-use approval behavior
 
-Database functions are mocked where appropriate so unit tests do not modify the production/development database.
+Database and MCP dependencies are mocked where appropriate so unit/API tests can run without modifying the real database.
 
 ---
 
@@ -658,7 +649,7 @@ Checkout repository
 Install uv
         |
         v
-Install Python
+Install Python 3.14
         |
         v
 Install dependencies
@@ -670,13 +661,11 @@ Run pytest
 Pass / Fail
 ```
 
-The CI status is displayed using the badge at the top of this README.
-
 ---
 
 ## Security
 
-Sensitive configuration is stored using environment variables.
+Sensitive configuration is supplied through environment variables.
 
 The following should never be committed:
 
@@ -691,40 +680,7 @@ The `.env` file is excluded through `.gitignore` and `.dockerignore`.
 
 The Docker image does not contain the local `.env` file.
 
-Secrets are supplied to the application at runtime.
-
----
-
-## Development Workflow
-
-A typical development workflow is:
-
-```bash
-# Start Docker Desktop
-open -a Docker
-
-# Start MySQL
-docker compose up -d mysql
-
-# Run the application
-docker compose run --rm app
-
-# Run tests
-uv run python -m pytest -v
-
-# Stop the containers
-docker compose down
-```
-
-Then commit changes:
-
-```bash
-git add .
-git commit -m "Describe your change"
-git push
-```
-
-GitHub Actions automatically runs the test suite after the push.
+Write operations also require explicit human approval before execution.
 
 ---
 
@@ -735,44 +691,49 @@ GitHub Actions automatically runs the test suite after the push.
 | Python | Application development |
 | MCP | Tool communication protocol |
 | OpenAI | Natural-language reasoning and tool selection |
-| MySQL | Persistent application data |
+| FastAPI | REST API and web backend |
+| HTML/CSS/JavaScript | Browser interface |
+| MySQL | Persistent employee and ticket data |
 | mysql-connector-python | Python-to-MySQL connectivity |
 | python-dotenv | Environment variable management |
+| Pydantic | API request/response validation |
 | pytest | Automated testing |
 | uv | Python dependency and environment management |
 | Docker | Application containerization |
-| Docker Compose | Multi-container orchestration |
+| Docker Compose | Multi-container development |
 | Git | Version control |
 | GitHub | Source repository |
 | GitHub Actions | Continuous integration |
 
 ---
 
-## Key Engineering Concepts Demonstrated
+## Key Concepts Demonstrated
 
 This project demonstrates:
 
 - Agentic AI workflows
-- Model Context Protocol
+- Model Context Protocol (MCP)
 - LLM function/tool calling
-- Dynamic tool discovery
-- Multi-turn conversation state
-- Human-in-the-loop AI systems
+- Dynamic MCP tool discovery
+- Human-in-the-loop AI
+- Read and write tool separation
+- FastAPI REST APIs
+- Browser-to-backend communication
 - Relational database integration
 - SQL persistence
-- Database transaction management
-- Separation of application and database layers
+- Database transactions
+- Foreign-key relationships
 - Input validation
 - Error handling
-- Unit testing
+- Unit and API testing
 - Dependency mocking
 - Environment-based configuration
 - Secret management
 - Docker containerization
-- Multi-container orchestration
+- Docker Compose
 - Persistent Docker volumes
-- CI/CD fundamentals
-- Git/GitHub development workflow
+- GitHub Actions CI
+- Git/GitHub workflow
 
 ---
 
@@ -788,23 +749,28 @@ Tool: get_leave_balance
 Arguments: {'employee_id': 'EMP002'}
 
 Agent:
-EMP002 has 6 annual leave days remaining.
+Employee EMP002 has 6 annual leave days remaining.
 
 You: Create an IT ticket for EMP001 because my keyboard is not working
 
-Agent:
-Approval is required before creating the ticket.
+Requested action: create_it_ticket
 
-You: yes
+This action will modify data. Approve? (yes/no): yes
 
 Agent:
 The IT support ticket was created.
-
-You: Show all tickets for EMP001
-
-Agent:
-Displays the employee's IT support tickets.
 ```
+
+---
+
+## Current Limitations
+
+- Web chat requests do not currently persist conversation history between separate HTTP requests.
+- Pending web approvals are stored in memory and are lost when the application restarts.
+- The project does not currently implement employee authentication or authorization.
+- The included database records are demonstration data.
+
+These limitations keep the project simple and understandable while demonstrating the core MCP and agent workflow.
 
 ---
 
@@ -812,17 +778,14 @@ Displays the employee's IT support tickets.
 
 Potential future improvements include:
 
-- Web-based frontend
 - Authentication and authorization
 - Role-based access control
-- REST API layer
-- More employee-support MCP tools
-- Integration tests using containerized MySQL
+- Persistent conversation sessions
+- Persistent approval storage
 - Structured application logging
-- Observability and monitoring
-- Production cloud deployment
+- Integration tests using containerized MySQL
+- Cloud deployment
 - Managed production database
-- Additional CI/CD deployment automation
 
 ---
 
@@ -830,7 +793,7 @@ Potential future improvements include:
 
 Project repository:
 
-https://github.com/nakkaganesh/employee-mcp-server
+`https://github.com/nakkaganesh/employee-mcp-server`
 
 ---
 
